@@ -8,8 +8,20 @@ export class FirebaseAuthService {
       const parts = token.split('_');
       const role = parts[1] || 'customer';
       const uid = parts[2] || 'mock-uid-123';
-      const email = `${role}-${uid}@example.com`;
-      const name = `Mock ${role.charAt(0).toUpperCase() + role.slice(1)}`;
+      let email = `${role}-${uid}@example.com`;
+      let name = `Mock ${role.charAt(0).toUpperCase() + role.slice(1)}`;
+
+      if (parts[3]) {
+        try {
+          email = Buffer.from(parts[3], 'base64').toString('utf8');
+        } catch (_) {}
+      }
+      if (parts[4]) {
+        try {
+          name = Buffer.from(parts[4], 'base64').toString('utf8');
+        } catch (_) {}
+      }
+
       return { email, name, uid };
     }
 
