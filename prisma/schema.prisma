@@ -1,0 +1,667 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Enums
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum PropertyStatus {
+  DRAFT
+  READY
+  PUBLISHED
+  SUSPENDED
+  ARCHIVED
+}
+
+enum ServiceStatus {
+  DRAFT
+  PUBLISHED
+  SUSPENDED
+  ARCHIVED
+}
+
+enum Department {
+  ENGINEERING
+  CONTRACTING
+}
+
+enum RequestStatus {
+  NEW
+  UNDER_REVIEW
+  WAITING_CUSTOMER
+  APPROVED
+  REJECTED
+  PROJECT_CREATED
+  CLOSED
+}
+
+enum ProjectStatus {
+  PLANNED
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CLOSED
+  ARCHIVED
+}
+
+enum ProjectMemberRole {
+  ENGINEER
+  CONTRACTOR
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+
+enum MilestoneStatus {
+  PENDING
+  COMPLETED
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  HIDDEN
+  ARCHIVED
+}
+
+enum CommentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  HIDDEN
+}
+
+enum MessageSender {
+  CUSTOMER
+  AI
+}
+
+enum ConversationStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum NotificationType {
+  PUSH
+  IN_APP
+}
+
+// Models
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique // e.g., SYSTEM_ADMIN, ADMIN, EMPLOYEE, ENGINEER, CONTRACTOR, CUSTOMER
+  nameAr      String
+  nameEn      String
+  users       User[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  action      String           // e.g., CREATE, READ, UPDATE, DELETE, PUBLISH
+  module      String           // e.g., USERS, PROPERTIES, SERVICES, PROJECTS, SETTINGS
+  description String?
+  roles       RolePermission[]
+
+  @@unique([action, module])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model User {
+  id                String             @id @default(uuid())
+  name              String
+  email             String             @unique
+  phone             String?
+  password          String?            // Nullable for Google Auth users
+  profileImage      String?
+  status            UserStatus         @default(ACTIVE)
+  lastLogin         DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  roleId            String
+  role              Role               @relation(fields: [roleId], references: [id])
+  
+  engineerProfile   EngineerProfile?
+  contractorProfile ContractorProfile?
+  
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+  serviceRequests   ServiceRequest[]
+  comments          Comment[]
+  ratings           Rating[]
+  likes             Like[]
+  aiConversations   AIConversation[]
+  projectTasks      ProjectTask[]      @relation("AssignedTasks")
+}
+
+model EngineerProfile {
+  id              String          @id @default(uuid())
+  userId          String          @unique
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialization  String
+  experienceYears Int
+  bio             String?
+  qualifications  String[]        // Academic qualifications list
+  certificates    String[]        // Professional certificates list
+  skills          String[]        // Skills list
+  projectMembers  ProjectMember[]
+}
+
+model ContractorProfile {
+  id              String          @id @default(uuid())
+  userId          String          @unique
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName     String?
+  experienceYears Int
+  skills          String[]
+  certificates    String[]
+  bio             String?
+  projectMembers  ProjectMember[]
+}
+
+// Property Domain
+
+model PropertyType {
+  id         String             @id @default(uuid())
+  nameAr     String
+  nameEn     String
+  properties Property[]
+  specs      PropertyTypeSpec[]
+}
+
+model PropertyTypeSpec {
+  id         String     @id @default(uuid())
+  nameAr     String
+  nameEn     String
+  typeId     String
+  type       PropertyType @relation(fields: [typeId], references: [id], onDelete: Cascade)
+  properties Property[]
+}
+
+model PropertyCategory {
+  id         String     @id @default(uuid())
+  nameAr     String
+  nameEn     String
+  properties Property[]
+}
+
+model PropertyFeature {
+  id         String               @id @default(uuid())
+  nameAr     String
+  nameEn     String
+  properties PropertyFeatureMap[]
+}
+
+model PropertyUtility {
+  id         String               @id @default(uuid())
+  nameAr     String
+  nameEn     String
+  properties PropertyUtilityMap[]
+}
+
+model PropertyGuarantee {
+  id         String                @id @default(uuid())
+  nameAr     String
+  nameEn     String
+  properties PropertyGuaranteeMap[]
+}
+
+model Property {
+  id            String                 @id @default(uuid())
+  titleAr       String
+  titleEn       String
+  descriptionAr String
+  descriptionEn String
+  price         Decimal                @db.Decimal(12, 2)
+  area          Float
+  city          String
+  latitude      Float                  @default(14.5422)
+  longitude      Float                  @default(44.4000)
+  contactPhone  String
+  status        PropertyStatus         @default(DRAFT)
+  currency      Currency               @default(USD)
+  typeId        String
+  typeSpecId    String?
+  categoryId    String
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  type          PropertyType           @relation(fields: [typeId], references: [id])
+  typeSpec      PropertyTypeSpec?      @relation(fields: [typeSpecId], references: [id], onDelete: SetNull)
+  category      PropertyCategory       @relation(fields: [categoryId], references: [id])
+  features      PropertyFeatureMap[]
+  utilities     PropertyUtilityMap[]
+  guarantees    PropertyGuaranteeMap[]
+  media         PropertyMedia[]
+}
+
+model PropertyFeatureMap {
+  propertyId String
+  featureId  String
+  property   Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  feature    PropertyFeature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@id([propertyId, featureId])
+}
+
+model PropertyUtilityMap {
+  propertyId String
+  utilityId  String
+  property   Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  utility    PropertyUtility @relation(fields: [utilityId], references: [id], onDelete: Cascade)
+
+  @@id([propertyId, utilityId])
+}
+
+model PropertyGuaranteeMap {
+  propertyId  String
+  guaranteeId String
+  property    Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  guarantee   PropertyGuarantee @relation(fields: [guaranteeId], references: [id], onDelete: Cascade)
+
+  @@id([propertyId, guaranteeId])
+}
+
+model PropertyMedia {
+  id         String   @id @default(uuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  url        String
+  isPrimary  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+// Service Domain
+
+model Service {
+  id                   String             @id @default(uuid())
+  nameAr               String
+  nameEn               String
+  department           Department
+  shortDescriptionAr   String
+  shortDescriptionEn   String
+  detailedDescriptionAr String
+  detailedDescriptionEn String
+  coverImage           String
+  status               ServiceStatus      @default(DRAFT)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  requests             ServiceRequest[]
+  portfolioProjects    ServicePortfolio[]
+  ratings              Rating[]
+}
+
+model ServiceRequest {
+  id             String              @id @default(uuid())
+  customerId     String
+  customer       User                @relation(fields: [customerId], references: [id])
+  serviceId      String
+  service        Service             @relation(fields: [serviceId], references: [id])
+  projectName    String
+  description    String
+  expectedBudget Float?
+  location       String
+  latitude       Float               @default(14.5422)
+  longitude      Float               @default(44.4000)
+  status         RequestStatus       @default(NEW)
+  propertyType   String?
+  currency       Currency            @default(USD)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  attachments    RequestAttachment[]
+  workProject    WorkProject?
+}
+
+model RequestAttachment {
+  id        String         @id @default(uuid())
+  requestId String
+  request   ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  fileName  String
+  fileUrl   String
+  fileType  String
+  fileSize  Int
+  createdAt DateTime       @default(now())
+}
+
+model WorkProject {
+  id                 String              @id @default(uuid())
+  requestId          String              @unique
+  request            ServiceRequest      @relation(fields: [requestId], references: [id])
+  name               String
+  description        String
+  budget             Float
+  startDate          DateTime
+  expectedEndDate    DateTime
+  progressPercentage Float               @default(0)
+  status             ProjectStatus       @default(PLANNED)
+  currency           Currency            @default(USD)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  members            ProjectMember[]
+  tasks              ProjectTask[]
+  milestones         ProjectMilestone[]
+  attachments        ProjectAttachment[]
+  portfolioProjects  PortfolioProject[]
+}
+
+model ProjectMember {
+  id           String             @id @default(uuid())
+  projectId    String
+  project      WorkProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  engineerId   String?
+  engineer     EngineerProfile?   @relation(fields: [engineerId], references: [id], onDelete: SetNull)
+  contractorId String?
+  contractor   ContractorProfile? @relation(fields: [contractorId], references: [id], onDelete: SetNull)
+  role         ProjectMemberRole
+  assignedAt   DateTime           @default(now())
+}
+
+model ProjectTask {
+  id                   String          @id @default(uuid())
+  projectId            String
+  project              WorkProject     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title                String
+  description          String?
+  assignedUserId       String?
+  assignedUser         User?           @relation("AssignedTasks", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  dueDate              DateTime
+  status               TaskStatus      @default(TODO)
+  completionPercentage Float           @default(0)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+}
+
+model ProjectMilestone {
+  id          String          @id @default(uuid())
+  projectId   String
+  project     WorkProject     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  dueDate     DateTime
+  status      MilestoneStatus @default(PENDING)
+  createdAt   DateTime        @default(now())
+}
+
+model ProjectAttachment {
+  id        String      @id @default(uuid())
+  projectId String
+  project   WorkProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fileName  String
+  fileUrl   String
+  fileType  String
+  fileSize  Int
+  createdAt DateTime    @default(now())
+}
+
+// Content Domain
+
+model PortfolioProject {
+  id            String             @id @default(uuid())
+  workProjectId String?
+  workProject   WorkProject?       @relation(fields: [workProjectId], references: [id], onDelete: SetNull)
+  titleAr       String
+  titleEn       String
+  descriptionAr String
+  descriptionEn String
+  coverImage    String
+  gallery       String[]
+  categoryAr    String
+  categoryEn    String
+  completionDate DateTime
+  locationAr    String
+  locationEn    String
+  status        ContentStatus      @default(DRAFT)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  services      ServicePortfolio[]
+  comments      Comment[]
+  ratings       Rating[]
+  likes         Like[]
+}
+
+model ServicePortfolio {
+  serviceId          String
+  portfolioProjectId String
+  service            Service          @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  portfolioProject   PortfolioProject @relation(fields: [portfolioProjectId], references: [id], onDelete: Cascade)
+
+  @@id([serviceId, portfolioProjectId])
+}
+
+model News {
+  id            String        @id @default(uuid())
+  titleAr       String
+  titleEn       String
+  summaryAr     String
+  summaryEn     String
+  contentAr     String
+  contentEn     String
+  featuredImage String
+  gallery       String[]
+  status        ContentStatus @default(DRAFT)
+  publishDate   DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  comments      Comment[]
+  likes         Like[]
+}
+
+model Article {
+  id            String        @id @default(uuid())
+  titleAr       String
+  titleEn       String
+  summaryAr     String
+  summaryEn     String
+  contentAr     String
+  contentEn     String
+  author        String
+  coverImage    String
+  gallery       String[]
+  tags          String[]
+  categoryAr    String
+  categoryEn    String
+  status        ContentStatus @default(DRAFT)
+  publishDate   DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  comments      Comment[]
+  likes         Like[]
+}
+
+model EngineeringTip {
+  id            String        @id @default(uuid())
+  titleAr       String
+  titleEn       String
+  descriptionAr String
+  descriptionEn String
+  image         String?
+  status        ContentStatus @default(DRAFT)
+  publishDate   DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+}
+
+model CompanyAchievement {
+  id            String        @id @default(uuid())
+  titleAr       String
+  titleEn       String
+  descriptionAr String
+  descriptionEn String
+  images        String[]
+  date          DateTime
+  status        ContentStatus @default(DRAFT)
+  createdAt     DateTime      @default(now())
+}
+
+model StaticPage {
+  id        String        @id @default(uuid())
+  slug      String        @unique // e.g. about-us, privacy-policy
+  titleAr   String
+  titleEn   String
+  contentAr String
+  contentEn String
+  status    ContentStatus @default(DRAFT)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model Testimonial {
+  id             String        @id @default(uuid())
+  customerNameAr String
+  customerNameEn String
+  jobTitleAr     String?
+  jobTitleEn     String?
+  rating         Int
+  commentAr      String
+  commentEn      String
+  image          String?
+  status         ContentStatus @default(DRAFT)
+  createdAt      DateTime      @default(now())
+}
+
+// Interaction
+
+model Comment {
+  id                 String            @id @default(uuid())
+  customerId         String
+  customer           User              @relation(fields: [customerId], references: [id])
+  content            String
+  status             CommentStatus     @default(PENDING)
+  portfolioProjectId String?
+  portfolioProject   PortfolioProject? @relation(fields: [portfolioProjectId], references: [id], onDelete: Cascade)
+  newsId             String?
+  news               News?             @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  articleId          String?
+  article            Article?          @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+}
+
+model Rating {
+  id                 String            @id @default(uuid())
+  customerId         String
+  customer           User              @relation(fields: [customerId], references: [id])
+  value              Int               // 1 to 5
+  portfolioProjectId String?
+  portfolioProject   PortfolioProject? @relation(fields: [portfolioProjectId], references: [id], onDelete: Cascade)
+  serviceId          String?
+  service            Service?          @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@unique([customerId, portfolioProjectId])
+  @@unique([customerId, serviceId])
+}
+
+model Like {
+  id                 String            @id @default(uuid())
+  customerId         String
+  customer           User              @relation(fields: [customerId], references: [id])
+  portfolioProjectId String?
+  portfolioProject   PortfolioProject? @relation(fields: [portfolioProjectId], references: [id], onDelete: Cascade)
+  newsId             String?
+  news               News?             @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  articleId          String?
+  article            Article?          @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  createdAt          DateTime          @default(now())
+
+  @@unique([customerId, portfolioProjectId])
+  @@unique([customerId, newsId])
+  @@unique([customerId, articleId])
+}
+
+// AI Assistant
+
+model AIConversation {
+  id         String             @id @default(uuid())
+  customerId String
+  customer   User               @relation(fields: [customerId], references: [id])
+  title      String
+  status     ConversationStatus @default(ACTIVE)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  messages   AIMessage[]
+}
+
+model AIMessage {
+  id             String         @id @default(uuid())
+  conversationId String
+  conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         MessageSender
+  message        String
+  modelUsed      String?
+  tokenUsage     Int?
+  responseTimeMs Int?
+  createdAt      DateTime       @default(now())
+}
+
+// System Logs & Notifications
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  module      String
+  operation   String
+  entityName  String?
+  entityId    String?
+  success     Boolean
+  ipAddress   String?
+  deviceInfo  String?
+  browserInfo String?
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  type      NotificationType @default(IN_APP)
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+enum Currency {
+  YER
+  SAR
+  USD
+}
