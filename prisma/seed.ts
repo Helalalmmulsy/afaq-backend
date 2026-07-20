@@ -669,6 +669,7 @@ async function main() {
       { key: 'platform_email', value: 'contact@afaq.com' },
       { key: 'platform_phone', value: '+967 771234567' },
       { key: 'platform_address', value: 'صنعاء، اليمن' },
+      { key: 'platform_facebook', value: 'https://www.facebook.com/share/1DgsSjvQRo/' },
       { key: 'ai_api_key', value: '' },
       { key: 'ai_model', value: 'gemini-2.0-flash' },
       { key: 'ai_monthly_limit', value: '1000' },
