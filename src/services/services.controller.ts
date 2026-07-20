@@ -28,6 +28,11 @@ export class ServicesController {
   // PUBLIC ENDPOINTS
   // ==========================================
 
+  @Get('engineers')
+  async findEngineers() {
+    return this.servicesService.findEngineers();
+  }
+
   @Get()
   @UseGuards(OptionalJwtAuthGuard)
   async findAllServices(

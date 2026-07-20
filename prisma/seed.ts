@@ -12,6 +12,7 @@ async function main() {
 
   // --- Clean existing data to avoid conflicts ---
   // Delete in reverse order of dependencies
+  await prisma.aIConversation.deleteMany({});
   await prisma.projectTask.deleteMany({});
   await prisma.projectMilestone.deleteMany({});
   await prisma.projectAttachment.deleteMany({});
@@ -103,18 +104,32 @@ async function main() {
   // Engineers
   const engUser1 = await prisma.user.create({
     data: {
-      name: 'المهندس أحمد صالح البكاري',
-      email: 'ahmed@afaq.com',
+      name: 'المهندس عبدالرحمن الملصي',
+      email: 'abdulrahman@afaq.com',
       password: 'password123',
-      phone: '771234567',
+      phone: '770000010',
       roleId: dbRoles['ENGINEER'].id,
       status: 'ACTIVE',
       engineerProfile: {
         create: {
           specialization: 'STRUCTURE',
-          experienceYears: 8,
-          bio: 'مهندس إنشائي متخصص في تصميم الأبراج السكنية ومقاومة الزلازل.',
-          skills: ['AutoCAD', 'Revit', 'Structural Analysis'],
+          experienceYears: 15,
+          bio: 'خبرة طويلة في التصميم الإنشائي والإشراف على المشاريع السكنية والتجارية الكبرى. أركز على الحلول الهندسية الفعالة وعالية الأمان وبأفضل تكلفة.',
+          skills: [
+            'AutoCAD',
+            'Revit',
+            'Structural Analysis',
+            'إشراف هندسي ومطابقة مواصفات المخططات الإنشائية والخرسانية.',
+            'تحليل وتصميم إنشائي للمباني السكنية والتجارية.',
+            'حساب الكميات وتقدير الميزانيات وإعداد جداول المواصفات الفنية.'
+          ],
+          qualifications: [
+            'بكالوريوس هندسة مدنية - جامعة صنعاء (2009).'
+          ],
+          certificates: [
+            'شهادة معتمدة في إدارة المشاريع الاحترافية (PMP).',
+            'عضو نقابة المهندسين اليمنيين.'
+          ]
         },
       },
     },
@@ -122,18 +137,32 @@ async function main() {
 
   const engUser2 = await prisma.user.create({
     data: {
-      name: 'المهندسة ريم خالد اليوسفي',
-      email: 'reem@afaq.com',
+      name: 'المهندسة إحسان الحيمي',
+      email: 'ihsan@afaq.com',
       password: 'password123',
-      phone: '772345678',
+      phone: '770000011',
       roleId: dbRoles['ENGINEER'].id,
       status: 'ACTIVE',
       engineerProfile: {
         create: {
           specialization: 'ARCHITECTURE',
-          experienceYears: 5,
-          bio: 'مهندسة معمارية متخصصة في التصاميم الحديثة والواجهات الزجاجية والمعمار الأخضر.',
-          skills: ['3ds Max', 'SketchUp', 'V-Ray Rendering'],
+          experienceYears: 10,
+          bio: 'متخصصة في ابتكار الحلول المعمارية الحديثة والتصاميم الداخلية ذات الطابع المعاصر. أهتم بالتفاصيل الجمالية وتناسق الألوان لإنتاج تحف معمارية فريدة تدمج الأصالة باللمسة الحديثة.',
+          skills: [
+            '3ds Max',
+            'SketchUp',
+            'V-Ray Rendering',
+            'تصميم العديد من الفلل السكنية والقصور العصرية بمختلف محافظات الجمهورية.',
+            'إشراف وتشطيب ديكورات داخلية لمكاتب شركات ومطاعم كبرى.',
+            'إعداد المخططات المعمارية التنفيذية (Shop Drawings) للمشاريع الخدمية.'
+          ],
+          qualifications: [
+            'بكالوريوس هندسة معمارية - جامعة العلوم والتكنولوجيا (2014).'
+          ],
+          certificates: [
+            'شهادة في التصميم المعماري باستخدام BIM / Revit.',
+            'عضو جمعية المعماريين اليمنيين.'
+          ]
         },
       },
     },
@@ -567,8 +596,8 @@ async function main() {
       summaryEn: 'Why waterproofing is crucial for building basements and concrete foundations longevity.',
       contentAr: 'تتسرب المياه الجوفية والرطوبة إلى داخل الخرسانة غير المعزولة مسببة صدأ الحديد وتفكك المادة الأسمنتية، مما يهدد بسقوط المبنى. استخدام القار البارد أو الرولات العازلة يحمي الأساسات والأسطح بنسبة 100% ويحافظ على استقرار الأعمدة.',
       contentEn: 'Insulation keeps groundwater away from reinforcing steel, preventing oxidation and internal cracking. Bitumen coating and asphalt membrane protect concrete bases effectively.',
-      author: 'المهندسة ريم خالد اليوسفي',
-      coverImage: 'https://images.unsplash.com/photo-1581094288338-2314dddb7eed?q=80&w=400',
+      author: 'المهندسة إحسان الحيمي',
+      coverImage: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=400',
       status: 'PUBLISHED',
       categoryAr: 'مقالات التشييد',
       categoryEn: 'Construction Articles',

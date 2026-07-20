@@ -36,6 +36,28 @@ export class ServicesService {
     });
   }
 
+  async findEngineers() {
+    return this.prisma.user.findMany({
+      where: {
+        role: {
+          name: 'ENGINEER',
+        },
+        status: 'ACTIVE',
+      },
+      include: {
+        engineerProfile: {
+          include: {
+            projectMembers: {
+              include: {
+                project: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
   async findAllServices(params: {
     department?: Department;
     status?: 'DRAFT' | 'PUBLISHED' | 'SUSPENDED' | 'ARCHIVED';
