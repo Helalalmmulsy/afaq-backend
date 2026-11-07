@@ -22,6 +22,14 @@ export class AuthService {
       return null;
     }
 
+    if (user.status === 'SUSPENDED') {
+      throw new UnauthorizedException('تم إيقاف حسابك من قبل الإدارة. يرجى مراجعة الدعم الفني.');
+    }
+
+    if (user.status === 'ARCHIVED') {
+      throw new UnauthorizedException('هذا الحساب تم أرشفته أو حذفه.');
+    }
+
     const { password, ...result } = user;
     return result;
   }
@@ -76,11 +84,11 @@ export class AuthService {
     }
 
     if (user.status === 'SUSPENDED') {
-      throw new UnauthorizedException('User account is suspended');
+      throw new UnauthorizedException('تم إيقاف حسابك من قبل الإدارة. يرجى مراجعة الدعم الفني.');
     }
 
     if (user.status === 'ARCHIVED') {
-      throw new UnauthorizedException('User account is archived');
+      throw new UnauthorizedException('هذا الحساب تم أرشفته أو حذفه.');
     }
 
     // Generate local JWT

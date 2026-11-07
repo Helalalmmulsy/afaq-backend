@@ -182,6 +182,8 @@ export class UsersService {
         qualifications?: string[];
         certificates?: string[];
         skills?: string[];
+        customProjects?: any;
+        customExperiences?: any;
       };
       contractorDetails?: {
         companyName?: string;
@@ -189,6 +191,8 @@ export class UsersService {
         bio?: string;
         certificates?: string[];
         skills?: string[];
+        customProjects?: any;
+        customExperiences?: any;
       };
     },
   ) {
@@ -210,29 +214,54 @@ export class UsersService {
 
       // Update engineer details if profile exists
       if (user.role.name === 'ENGINEER' && data.engineerDetails) {
-        await tx.engineerProfile.update({
+        await tx.engineerProfile.upsert({
           where: { userId: id },
-          data: {
+          create: {
+            userId: id,
+            specialization: data.engineerDetails.specialization || 'General',
+            experienceYears: data.engineerDetails.experienceYears || 0,
+            bio: data.engineerDetails.bio,
+            qualifications: data.engineerDetails.qualifications || [],
+            certificates: data.engineerDetails.certificates || [],
+            skills: data.engineerDetails.skills || [],
+            customProjects: data.engineerDetails.customProjects || [],
+            customExperiences: data.engineerDetails.customExperiences || [],
+          },
+          update: {
             specialization: data.engineerDetails.specialization,
             experienceYears: data.engineerDetails.experienceYears,
             bio: data.engineerDetails.bio,
             qualifications: data.engineerDetails.qualifications,
             certificates: data.engineerDetails.certificates,
             skills: data.engineerDetails.skills,
+            customProjects: data.engineerDetails.customProjects,
+            customExperiences: data.engineerDetails.customExperiences,
           },
         });
       }
 
       // Update contractor details if profile exists
       if (user.role.name === 'CONTRACTOR' && data.contractorDetails) {
-        await tx.contractorProfile.update({
+        await tx.contractorProfile.upsert({
           where: { userId: id },
-          data: {
+          create: {
+            userId: id,
+            companyName: data.contractorDetails.companyName,
+            experienceYears: data.contractorDetails.experienceYears || 0,
+            bio: data.contractorDetails.bio,
+            certificates: data.contractorDetails.certificates || [],
+            skills: data.contractorDetails.skills || [],
+            customProjects: data.contractorDetails.customProjects || [],
+            customExperiences: data.contractorDetails.customExperiences || [],
+          },
+          update: {
             companyName: data.contractorDetails.companyName,
             experienceYears: data.contractorDetails.experienceYears,
             bio: data.contractorDetails.bio,
             certificates: data.contractorDetails.certificates,
             skills: data.contractorDetails.skills,
+            customProjects: data.contractorDetails.customProjects,
+            customExperiences: data.contractorDetails.customExperiences,
           },
         });
       }
@@ -246,6 +275,87 @@ export class UsersService {
     return this.prisma.user.update({
       where: { id },
       data: { status: 'SUSPENDED' },
+    });
+  }
+
+  async activate(id: string) {
+    return this.prisma.user.update({
+      where: { id },
+      data: { status: 'ACTIVE' },
+    });
+  }
+
+  async toggleStatus(id: string) {
+    const user = await this.findOne(id);
+    const newStatus = user.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+    return this.prisma.user.update({
+      where: { id },
+      data: { status: newStatus },
+    });
+  }
+
+  async delete(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: { role: true, engineerProfile: true, contractorProfile: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role.name === 'SYSTEM_ADMIN') {
+      const adminCount = await this.prisma.user.count({
+        where: { role: { name: 'SYSTEM_ADMIN' } },
+      });
+      if (adminCount <= 1) {
+        throw new BadRequestException('Cannot delete the sole System Admin');
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Delete AI conversations
+      await tx.aIConversation.deleteMany({ where: { customerId: id } });
+
+      // 2. Unassign tasks
+      await tx.projectTask.updateMany({
+        where: { assignedUserId: id },
+        data: { assignedUserId: null },
+      });
+
+      // 3. Delete Project Members for engineer or contractor
+      if (user.engineerProfile) {
+        await tx.projectMember.deleteMany({ where: { engineerId: user.engineerProfile.id } });
+        await tx.engineerProfile.delete({ where: { id: user.engineerProfile.id } });
+      }
+      if (user.contractorProfile) {
+        await tx.projectMember.deleteMany({ where: { contractorId: user.contractorProfile.id } });
+        await tx.contractorProfile.delete({ where: { id: user.contractorProfile.id } });
+      }
+
+      // 4. Delete Service Requests and their attachments if customer
+      const serviceRequests = await tx.serviceRequest.findMany({
+        where: { customerId: id },
+        select: { id: true },
+      });
+      const reqIds = serviceRequests.map((r) => r.id);
+      if (reqIds.length > 0) {
+        await tx.requestAttachment.deleteMany({ where: { requestId: { in: reqIds } } });
+        await tx.workProject.deleteMany({ where: { requestId: { in: reqIds } } });
+        await tx.serviceRequest.deleteMany({ where: { id: { in: reqIds } } });
+      }
+
+      // 5. Delete comments, ratings, likes, notifications, audit logs
+      await tx.comment.deleteMany({ where: { customerId: id } });
+      await tx.rating.deleteMany({ where: { customerId: id } });
+      await tx.like.deleteMany({ where: { customerId: id } });
+      await tx.notification.deleteMany({ where: { userId: id } });
+      await tx.auditLog.deleteMany({ where: { userId: id } });
+
+      // 6. Finally delete the user
+      await tx.user.delete({ where: { id } });
+
+      return { message: 'User deleted successfully' };
     });
   }
 

@@ -5,6 +5,7 @@ import {
   Body,
   Patch,
   Param,
+  Delete,
   Query,
   UseGuards,
   Request,
@@ -75,6 +76,27 @@ export class UsersController {
   @RequirePermissions({ action: 'UPDATE', module: 'USERS' })
   async suspend(@Param('id') id: string) {
     return this.usersService.suspend(id);
+  }
+
+  @Patch(':id/activate')
+  @Roles('SYSTEM_ADMIN', 'ADMIN')
+  @RequirePermissions({ action: 'UPDATE', module: 'USERS' })
+  async activate(@Param('id') id: string) {
+    return this.usersService.activate(id);
+  }
+
+  @Patch(':id/toggle-status')
+  @Roles('SYSTEM_ADMIN', 'ADMIN')
+  @RequirePermissions({ action: 'UPDATE', module: 'USERS' })
+  async toggleStatus(@Param('id') id: string) {
+    return this.usersService.toggleStatus(id);
+  }
+
+  @Delete(':id')
+  @Roles('SYSTEM_ADMIN', 'ADMIN')
+  @RequirePermissions({ action: 'DELETE', module: 'USERS' })
+  async delete(@Param('id') id: string) {
+    return this.usersService.delete(id);
   }
 
   @Patch(':id/archive')

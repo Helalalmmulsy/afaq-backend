@@ -34,11 +34,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     if (user.status === 'SUSPENDED') {
-      throw new UnauthorizedException('User account is suspended');
+      throw new UnauthorizedException('تم إيقاف حسابك من قبل الإدارة. يرجى مراجعة الدعم الفني.');
     }
 
     if (user.status === 'ARCHIVED') {
-      throw new UnauthorizedException('User account is archived');
+      throw new UnauthorizedException('هذا الحساب تم أرشفته أو حذفه.');
     }
 
     // Flatten permissions for easier check inside Guards

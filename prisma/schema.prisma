@@ -168,6 +168,8 @@ model EngineerProfile {
   qualifications  String[]        // Academic qualifications list
   certificates    String[]        // Professional certificates list
   skills          String[]        // Skills list
+  customProjects  Json?           // Stored custom portfolio projects
+  customExperiences Json?         // Stored custom experiences/timeline
   projectMembers  ProjectMember[]
 }
 
@@ -180,6 +182,8 @@ model ContractorProfile {
   skills          String[]
   certificates    String[]
   bio             String?
+  customProjects  Json?           // Stored custom portfolio projects
+  customExperiences Json?         // Stored custom experiences/timeline
   projectMembers  ProjectMember[]
 }
 
