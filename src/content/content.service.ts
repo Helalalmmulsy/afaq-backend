@@ -97,7 +97,7 @@ export class ContentService {
         take: take ? Number(take) : undefined,
         include: {
           services: { include: { service: true } },
-          comments: { where: { status: 'APPROVED' }, include: { customer: true } },
+          comments: { where: { status: { not: 'REJECTED' } }, include: { customer: true }, orderBy: { createdAt: 'desc' } },
           ratings: true,
           likes: true,
         },
@@ -127,7 +127,7 @@ export class ContentService {
       where: { id },
       include: {
         services: { include: { service: true } },
-        comments: { where: { status: 'APPROVED' }, include: { customer: true } },
+        comments: { where: { status: { not: 'REJECTED' } }, include: { customer: true }, orderBy: { createdAt: 'desc' } },
         ratings: true,
         likes: true,
         workProject: true,
@@ -254,11 +254,24 @@ export class ContentService {
         { titleEn: { contains: params.search, mode: 'insensitive' } },
       ];
     }
-    return this.prisma.news.findMany({ where, include: { likes: true, comments: { where: { status: 'APPROVED' } } }, orderBy: { publishDate: 'desc' } });
+    return this.prisma.news.findMany({
+      where,
+      include: {
+        likes: { include: { customer: true } },
+        comments: { include: { customer: true }, orderBy: { createdAt: 'desc' } },
+      },
+      orderBy: { publishDate: 'desc' },
+    });
   }
 
   async findOneNews(id: string) {
-    const item = await this.prisma.news.findUnique({ where: { id }, include: { likes: true, comments: { where: { status: 'APPROVED' }, include: { customer: true } } } });
+    const item = await this.prisma.news.findUnique({
+      where: { id },
+      include: {
+        likes: { include: { customer: true } },
+        comments: { where: { status: { not: 'REJECTED' } }, include: { customer: true }, orderBy: { createdAt: 'desc' } },
+      },
+    });
     if (!item) throw new NotFoundException('News item not found');
     return { ...item, totalLikes: item.likes.length };
   }
@@ -291,11 +304,24 @@ export class ContentService {
         { titleEn: { contains: params.search, mode: 'insensitive' } },
       ];
     }
-    return this.prisma.article.findMany({ where, include: { likes: true, comments: { where: { status: 'APPROVED' } } }, orderBy: { publishDate: 'desc' } });
+    return this.prisma.article.findMany({
+      where,
+      include: {
+        likes: { include: { customer: true } },
+        comments: { include: { customer: true }, orderBy: { createdAt: 'desc' } },
+      },
+      orderBy: { publishDate: 'desc' },
+    });
   }
 
   async findOneArticle(id: string) {
-    const item = await this.prisma.article.findUnique({ where: { id }, include: { likes: true, comments: { where: { status: 'APPROVED' }, include: { customer: true } } } });
+    const item = await this.prisma.article.findUnique({
+      where: { id },
+      include: {
+        likes: { include: { customer: true } },
+        comments: { where: { status: { not: 'REJECTED' } }, include: { customer: true }, orderBy: { createdAt: 'desc' } },
+      },
+    });
     if (!item) throw new NotFoundException('Article not found');
     return { ...item, totalLikes: item.likes.length };
   }
@@ -440,8 +466,9 @@ export class ContentService {
         portfolioProjectId: data.portfolioProjectId,
         newsId: data.newsId,
         articleId: data.articleId,
-        status: 'PENDING', // Customer comments must be moderated by default
+        status: 'APPROVED', // Immediately active; admin can still suspend/reject from dashboard
       },
+      include: { customer: true },
     });
   }
 
@@ -461,7 +488,12 @@ export class ContentService {
 
     return this.prisma.comment.findMany({
       where,
-      include: { customer: true },
+      include: {
+        customer: true,
+        article: { select: { id: true, titleAr: true, titleEn: true } },
+        news: { select: { id: true, titleAr: true, titleEn: true } },
+        portfolioProject: { select: { id: true, titleAr: true, titleEn: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
