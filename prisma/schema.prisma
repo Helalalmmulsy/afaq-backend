@@ -669,3 +669,28 @@ enum Currency {
   SAR
   USD
 }
+
+enum TaxonomyGroup {
+  ENGINEERING_CONSULTATION
+  CONTRACTING_FIELD
+  TRANSACTION_TYPE
+  SERVICE_TYPE
+  PROPERTY_TYPE
+}
+
+model TaxonomyItem {
+  id          String        @id @default(uuid())
+  group       TaxonomyGroup
+  code        String
+  nameAr      String
+  nameEn      String
+  description String?
+  sortOrder   Int           @default(0)
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([group, isActive, sortOrder])
+  @@unique([group, code])
+}
+

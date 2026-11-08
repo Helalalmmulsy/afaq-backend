@@ -12,6 +12,7 @@ import { AiModule } from './ai/ai.module';
 import { SettingsModule } from './settings/settings.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
+import { TaxonomyModule } from './taxonomy/taxonomy.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module';
     SettingsModule,
     NotificationsModule,
     AuditLogsModule,
+    TaxonomyModule,
   ],
   controllers: [AppController],
   providers: [AppService],
