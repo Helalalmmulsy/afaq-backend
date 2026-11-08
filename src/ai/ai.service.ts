@@ -93,7 +93,10 @@ export class AiService {
     }
 
     const apiKey = await this.getSetting('ai_api_key', '');
-    const model = await this.getSetting('ai_model', 'gemini-1.5-flash');
+    let model = await this.getSetting('ai_model', 'gemini-3.8-flash');
+    if (model === 'gemini-1.5-flash' || model === 'gemini-2.0-flash') {
+      model = 'gemini-3.8-flash';
+    }
     const temperatureStr = await this.getSetting('ai_temperature', '0.7');
     const temperature = parseFloat(temperatureStr);
 

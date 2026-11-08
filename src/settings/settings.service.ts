@@ -22,8 +22,9 @@ export class SettingsService {
         { key: 'platform_email', value: 'contact@afaq.com' },
         { key: 'platform_phone', value: '+967 771234567' },
         { key: 'platform_address', value: 'صنعاء، اليمن' },
-        { key: 'ai_api_key', value: '' },
-        { key: 'ai_model', value: 'gemini-2.0-flash' },
+        { key: 'ai_enabled', value: 'true' },
+        { key: 'ai_api_key', value: process.env.AI_API_KEY || '' },
+        { key: 'ai_model', value: 'gemini-3.8-flash' },
         { key: 'ai_monthly_limit', value: '1000' },
       ];
       await this.setMany(defaults);
