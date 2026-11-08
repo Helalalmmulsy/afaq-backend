@@ -170,6 +170,7 @@ model EngineerProfile {
   skills          String[]        // Skills list
   customProjects  Json?           // Stored custom portfolio projects
   customExperiences Json?         // Stored custom experiences/timeline
+  customReviews   Json?           // Stored client reviews and ratings
   projectMembers  ProjectMember[]
 }
 
@@ -184,6 +185,7 @@ model ContractorProfile {
   bio             String?
   customProjects  Json?           // Stored custom portfolio projects
   customExperiences Json?         // Stored custom experiences/timeline
+  customReviews   Json?           // Stored client reviews and ratings
   projectMembers  ProjectMember[]
 }
 

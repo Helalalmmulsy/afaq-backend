@@ -36,6 +36,10 @@ export class SettingsService {
         { key: 'ai_api_key', value: process.env.AI_API_KEY || '' },
         { key: 'ai_model', value: 'gemini-3.8-flash' },
         { key: 'ai_monthly_limit', value: '1000' },
+        { key: 'about_us', value: 'مكتب آفاق العرب للاستشارات الهندسية والمقاولات العامة والتسويق العقاري، رواد في تقديم الحلول الهندسية المتكاملة والتنفيذ الإنشائي بأعلى معايير الجودة والابتكار.' },
+        { key: 'company_vision', value: 'الريادة والتميز في تقديم أرقى الخدمات الهندسية والمقاولات الذكية المتكاملة في اليمن والمنطقة.' },
+        { key: 'company_mission', value: 'تقديم تصاميم وإشراف وتنفيذ هندسي دقيق يلبي تطلعات عملائنا مع الالتزام بأعلى معايير الأمان والكفاءة والاستدامة.' },
+        { key: 'company_team_info', value: 'فريق هندسي وتقني متكامل يضم نخبة من المهندسين الاستشاريين في مجالات الهندسة المعمارية، الإنشائية، الإشراف، والتطوير البرمجي.' },
       ];
       await this.setMany(defaults);
       return this.prisma.systemSetting.findMany({

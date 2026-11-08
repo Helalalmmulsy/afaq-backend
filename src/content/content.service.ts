@@ -309,6 +309,12 @@ export class ContentService {
       include: {
         likes: { include: { customer: true } },
         comments: { include: { customer: true }, orderBy: { createdAt: 'desc' } },
+        _count: {
+          select: {
+            likes: true,
+            comments: { where: { status: { not: 'REJECTED' } } },
+          },
+        },
       },
       orderBy: { publishDate: 'desc' },
     });

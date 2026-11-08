@@ -184,6 +184,7 @@ export class UsersService {
         skills?: string[];
         customProjects?: any;
         customExperiences?: any;
+        customReviews?: any;
       };
       contractorDetails?: {
         companyName?: string;
@@ -193,6 +194,7 @@ export class UsersService {
         skills?: string[];
         customProjects?: any;
         customExperiences?: any;
+        customReviews?: any;
       };
     },
   ) {
@@ -226,6 +228,7 @@ export class UsersService {
             skills: data.engineerDetails.skills || [],
             customProjects: data.engineerDetails.customProjects || [],
             customExperiences: data.engineerDetails.customExperiences || [],
+            customReviews: data.engineerDetails.customReviews || [],
           },
           update: {
             specialization: data.engineerDetails.specialization,
@@ -236,6 +239,7 @@ export class UsersService {
             skills: data.engineerDetails.skills,
             customProjects: data.engineerDetails.customProjects,
             customExperiences: data.engineerDetails.customExperiences,
+            customReviews: data.engineerDetails.customReviews,
           },
         });
       }
@@ -253,6 +257,7 @@ export class UsersService {
             skills: data.contractorDetails.skills || [],
             customProjects: data.contractorDetails.customProjects || [],
             customExperiences: data.contractorDetails.customExperiences || [],
+            customReviews: data.contractorDetails.customReviews || [],
           },
           update: {
             companyName: data.contractorDetails.companyName,
@@ -262,6 +267,7 @@ export class UsersService {
             skills: data.contractorDetails.skills,
             customProjects: data.contractorDetails.customProjects,
             customExperiences: data.contractorDetails.customExperiences,
+            customReviews: data.contractorDetails.customReviews,
           },
         });
       }
