@@ -22,9 +22,34 @@ export class SettingsController {
 
   @Get('public')
   async getPublicSettings() {
-    const keys = ['platform_name', 'contact_phone', 'contact_email', 'default_lat', 'default_lng'];
+    const publicKeys = [
+      'platform_name',
+      'platform_logo',
+      'platform_email',
+      'platform_phone',
+      'platform_address',
+      'office_latitude',
+      'office_longitude',
+      'facebook_url',
+      'instagram_url',
+      'twitter_url',
+      'linkedin_url',
+      'snapchat_url',
+      'youtube_url',
+      'whatsapp_phone',
+      'default_lat',
+      'default_lng',
+    ];
     const all = await this.settingsService.getAll();
-    return all.filter((s) => keys.includes(s.key));
+    const filtered = all.filter((s) => publicKeys.includes(s.key));
+    const map: Record<string, string> = {};
+    filtered.forEach((s) => {
+      map[s.key] = s.value;
+    });
+    return {
+      settings: filtered,
+      ...map,
+    };
   }
 
   // ==========================================
