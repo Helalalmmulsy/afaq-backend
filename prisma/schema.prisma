@@ -156,6 +156,7 @@ model User {
   likes             Like[]
   aiConversations   AIConversation[]
   projectTasks      ProjectTask[]      @relation("AssignedTasks")
+  mediaFiles        MediaFile[]
 }
 
 model EngineerProfile {
@@ -712,5 +713,35 @@ model DevTeamMember {
 
   @@index([isActive, order])
 }
+
+enum MediaCategory {
+  PROPERTIES
+  PROJECTS
+  OPERATIONAL_PROJECTS
+  REQUESTS
+  ARTICLES
+  SERVICES
+  PROFILES
+  BRANDING
+  GENERAL
+}
+
+model MediaFile {
+  id           String        @id @default(uuid())
+  fileName     String
+  originalName String
+  fileUrl      String
+  fileType     String
+  fileSize     Int
+  category     MediaCategory @default(GENERAL)
+  altText      String?
+  uploadedById String?
+  uploader     User?         @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([category, createdAt])
+}
+
 
 

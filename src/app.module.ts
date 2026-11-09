@@ -13,6 +13,8 @@ import { SettingsModule } from './settings/settings.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { TaxonomyModule } from './taxonomy/taxonomy.module';
+import { StorageModule } from './storage/storage.module';
+import { MediaModule } from './media/media.module';
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { TaxonomyModule } from './taxonomy/taxonomy.module';
     NotificationsModule,
     AuditLogsModule,
     TaxonomyModule,
+    StorageModule,
+    MediaModule,
   ],
   controllers: [AppController],
   providers: [AppService],
