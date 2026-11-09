@@ -173,6 +173,7 @@ export class UsersService {
       name?: string;
       phone?: string;
       password?: string;
+      profileImage?: string;
       roleId?: string;
       status?: 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED';
       engineerDetails?: {
@@ -207,6 +208,7 @@ export class UsersService {
         data: {
           name: data.name,
           phone: data.phone,
+          profileImage: data.profileImage,
           password: data.password, // In production, hash this!
           roleId: data.roleId,
           status: data.status,
