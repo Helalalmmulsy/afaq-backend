@@ -696,3 +696,21 @@ model TaxonomyItem {
   @@unique([group, code])
 }
 
+model DevTeamMember {
+  id          String   @id @default(uuid())
+  name        String
+  role        String
+  bio         String?
+  phone       String?
+  email       String?
+  github      String?
+  avatarUrl   String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, order])
+}
+
+

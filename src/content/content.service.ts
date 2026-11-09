@@ -684,4 +684,11 @@ export class ContentService {
       });
     }
   }
+
+  async getDevTeam() {
+    return this.prisma.devTeamMember.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+    });
+  }
 }

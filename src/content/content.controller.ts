@@ -29,6 +29,12 @@ export class ContentController {
   // PUBLIC ENDPOINTS (GUESTS & CUSTOMERS)
   // ==========================================
 
+  // --- Development Team ---
+  @Get('dev-team')
+  async getDevTeam() {
+    return this.contentService.getDevTeam();
+  }
+
   // --- Portfolio ---
   @Get('portfolio')
   @UseGuards(OptionalJwtAuthGuard)

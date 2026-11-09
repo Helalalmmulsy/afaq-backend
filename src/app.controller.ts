@@ -23,4 +23,12 @@ export class AppController {
       return { status: 'ok', database: 'disconnected', error: e.message };
     }
   }
+
+  @Get('dev-team')
+  async getDevTeam() {
+    return this.prisma.devTeamMember.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+    });
+  }
 }
