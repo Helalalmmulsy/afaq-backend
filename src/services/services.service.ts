@@ -37,7 +37,7 @@ export class ServicesService {
   }
 
   async findEngineers() {
-    return this.prisma.user.findMany({
+    const engineers = await this.prisma.user.findMany({
       where: {
         role: {
           name: 'ENGINEER',
@@ -56,6 +56,147 @@ export class ServicesService {
         },
       },
     });
+
+    return engineers.map((eng) => {
+      if (eng.engineerProfile && Array.isArray(eng.engineerProfile.customReviews)) {
+        const publicReviews = (eng.engineerProfile.customReviews as any[]).filter(
+          (r) => !r || r.hidden !== true,
+        );
+        return {
+          ...eng,
+          engineerProfile: {
+            ...eng.engineerProfile,
+            customReviews: publicReviews,
+          },
+        };
+      }
+      return eng;
+    });
+  }
+
+  async addEngineerReview(customerId: string, engineerIdOrUserId: string, data: { rating: number; comment: string }) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: customerId },
+    });
+
+    const engineerProfile = await this.prisma.engineerProfile.findFirst({
+      where: {
+        OR: [
+          { userId: engineerIdOrUserId },
+          { id: engineerIdOrUserId },
+        ],
+      },
+    });
+
+    if (!engineerProfile) {
+      throw new NotFoundException('Engineer profile not found');
+    }
+
+    const currentReviews = Array.isArray(engineerProfile.customReviews)
+      ? (engineerProfile.customReviews as any[])
+      : [];
+
+    const newReview = {
+      id: 'rev_' + Date.now(),
+      authorAr: user?.name || 'عميل آفاق',
+      author: user?.name || 'Client',
+      rating: Math.max(1, Math.min(5, Number(data.rating) || 5)),
+      commentAr: data.comment || '',
+      comment: data.comment || '',
+      date: new Date().toISOString().split('T')[0],
+      hidden: false,
+      userId: customerId,
+    };
+
+    const updated = [newReview, ...currentReviews];
+
+    await this.prisma.engineerProfile.update({
+      where: { id: engineerProfile.id },
+      data: {
+        customReviews: updated,
+      },
+    });
+
+    return {
+      message: 'Review added successfully',
+      review: newReview,
+    };
+  }
+
+  async publishProjectToShowcase(projectId: string, data: {
+    department?: 'ENGINEERING' | 'CONTRACTING';
+    titleAr?: string;
+    descriptionAr?: string;
+    coverImage?: string;
+    category?: string;
+    city?: string;
+  }) {
+    const project = await this.prisma.workProject.findUnique({
+      where: { id: projectId },
+      include: {
+        request: {
+          include: {
+            service: true,
+          },
+        },
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    const titleAr = data.titleAr || project.name;
+    const descAr = data.descriptionAr || project.description || titleAr;
+    const coverImage = data.coverImage || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&fit=crop&q=80';
+    const dept: Department = data.department === 'CONTRACTING' ? Department.CONTRACTING : Department.ENGINEERING;
+
+    // 1. Create a published Service entry so it appears directly under Engineering or Contracting in the app!
+    const service = await this.prisma.service.create({
+      data: {
+        nameAr: titleAr,
+        nameEn: titleAr,
+        department: dept,
+        shortDescriptionAr: descAr.slice(0, 150),
+        shortDescriptionEn: descAr.slice(0, 150),
+        detailedDescriptionAr: descAr,
+        detailedDescriptionEn: descAr,
+        coverImage: coverImage,
+        status: 'PUBLISHED',
+      },
+    });
+
+    // 2. Also create a PortfolioProject linked to this WorkProject
+    const portfolioProject = await this.prisma.portfolioProject.create({
+      data: {
+        workProjectId: project.id,
+        titleAr,
+        titleEn: titleAr,
+        descriptionAr: descAr,
+        descriptionEn: descAr,
+        coverImage,
+        gallery: [coverImage],
+        categoryAr: data.category || (dept === Department.ENGINEERING ? 'تصميم وإشراف هندسي' : 'تنفيذ ومقاولات'),
+        categoryEn: dept,
+        completionDate: project.expectedEndDate || new Date(),
+        locationAr: data.city || 'محافظة ذمار',
+        locationEn: data.city || 'Dhamar',
+        status: 'PUBLISHED',
+      },
+    });
+
+    await this.prisma.servicePortfolio.create({
+      data: {
+        serviceId: service.id,
+        portfolioProjectId: portfolioProject.id,
+      },
+    });
+
+    return {
+      message: 'Project published to public content successfully',
+      service,
+      portfolioProject,
+    };
   }
 
   async findAllServices(params: {

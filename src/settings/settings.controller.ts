@@ -39,6 +39,9 @@ export class SettingsController {
       'whatsapp_phone',
       'default_lat',
       'default_lng',
+      'about_us',
+      'company_vision',
+      'company_mission',
     ];
     const all = await this.settingsService.getAll();
     const filtered = all.filter((s) => publicKeys.includes(s.key));

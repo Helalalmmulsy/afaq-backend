@@ -16,32 +16,35 @@ export class SettingsService {
     const list = await this.prisma.systemSetting.findMany({
       orderBy: { key: 'asc' },
     });
-    if (list.length === 0) {
-      const defaults = [
-        { key: 'platform_name', value: 'آفاق العرب الذكية' },
-        { key: 'platform_logo', value: '' },
-        { key: 'platform_email', value: 'contact@afaq.com' },
-        { key: 'platform_phone', value: '777633944' },
-        { key: 'platform_address', value: 'محافظة ذمار، اليمن' },
-        { key: 'office_latitude', value: '14.55998012643909' },
-        { key: 'office_longitude', value: '44.3859385889446' },
-        { key: 'facebook_url', value: 'https://www.facebook.com/share/1GXQJ3L19s/' },
-        { key: 'instagram_url', value: '' },
-        { key: 'twitter_url', value: '' },
-        { key: 'linkedin_url', value: '' },
-        { key: 'snapchat_url', value: '' },
-        { key: 'youtube_url', value: '' },
-        { key: 'whatsapp_phone', value: '777633944' },
-        { key: 'ai_enabled', value: 'true' },
-        { key: 'ai_api_key', value: process.env.AI_API_KEY || '' },
-        { key: 'ai_model', value: 'gemini-3.8-flash' },
-        { key: 'ai_monthly_limit', value: '1000' },
-        { key: 'about_us', value: 'مكتب آفاق العرب للاستشارات الهندسية والمقاولات العامة والتسويق العقاري، رواد في تقديم الحلول الهندسية المتكاملة والتنفيذ الإنشائي بأعلى معايير الجودة والابتكار.' },
-        { key: 'company_vision', value: 'الريادة والتميز في تقديم أرقى الخدمات الهندسية والمقاولات الذكية المتكاملة في اليمن والمنطقة.' },
-        { key: 'company_mission', value: 'تقديم تصاميم وإشراف وتنفيذ هندسي دقيق يلبي تطلعات عملائنا مع الالتزام بأعلى معايير الأمان والكفاءة والاستدامة.' },
-        { key: 'company_team_info', value: 'فريق هندسي وتقني متكامل يضم نخبة من المهندسين الاستشاريين في مجالات الهندسة المعمارية، الإنشائية، الإشراف، والتطوير البرمجي.' },
-      ];
-      await this.setMany(defaults);
+    const defaults = [
+      { key: 'platform_name', value: 'آفاق العرب الذكية' },
+      { key: 'platform_logo', value: '' },
+      { key: 'platform_email', value: 'contact@afaq.com' },
+      { key: 'platform_phone', value: '777633944' },
+      { key: 'platform_address', value: 'محافظة ذمار، اليمن' },
+      { key: 'office_latitude', value: '14.55998012643909' },
+      { key: 'office_longitude', value: '44.3859385889446' },
+      { key: 'facebook_url', value: 'https://www.facebook.com/share/1GXQJ3L19s/' },
+      { key: 'instagram_url', value: '' },
+      { key: 'twitter_url', value: '' },
+      { key: 'linkedin_url', value: '' },
+      { key: 'snapchat_url', value: '' },
+      { key: 'youtube_url', value: '' },
+      { key: 'whatsapp_phone', value: '777633944' },
+      { key: 'ai_enabled', value: 'true' },
+      { key: 'ai_api_key', value: process.env.AI_API_KEY || '' },
+      { key: 'ai_model', value: 'gemini-3.8-flash' },
+      { key: 'ai_monthly_limit', value: '1000' },
+      { key: 'about_us', value: 'مكتب آفاق العرب للاستشارات الهندسية والمقاولات العامة والتسويق العقاري، رواد في تقديم الحلول الهندسية المتكاملة والتنفيذ الإنشائي بأعلى معايير الجودة والابتكار.' },
+      { key: 'company_vision', value: 'الريادة والتميز في تقديم أرقى الخدمات الهندسية والمقاولات الذكية المتكاملة في اليمن والمنطقة.' },
+      { key: 'company_mission', value: 'تقديم تصاميم وإشراف وتنفيذ هندسي دقيق يلبي تطلعات عملائنا مع الالتزام بأعلى معايير الأمان والكفاءة والاستدامة.' },
+    ];
+
+    const existingKeys = new Set(list.map((s) => s.key));
+    const missing = defaults.filter((d) => !existingKeys.has(d.key));
+
+    if (missing.length > 0) {
+      await this.setMany(missing);
       return this.prisma.systemSetting.findMany({
         orderBy: { key: 'asc' },
       });

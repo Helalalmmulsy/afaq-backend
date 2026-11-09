@@ -33,6 +33,27 @@ export class ServicesController {
     return this.servicesService.findEngineers();
   }
 
+  @Post('engineers/:id/reviews')
+  @UseGuards(JwtAuthGuard)
+  async addEngineerReview(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() body: { rating: number; comment: string },
+  ) {
+    return this.servicesService.addEngineerReview(req.user.id, id, body);
+  }
+
+  @Post('projects/:id/publish-showcase')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SYSTEM_ADMIN', 'ADMIN')
+  @RequirePermissions({ action: 'CREATE', module: 'SERVICES' })
+  async publishProjectToShowcase(
+    @Param('id') id: string,
+    @Body() body: any,
+  ) {
+    return this.servicesService.publishProjectToShowcase(id, body);
+  }
+
   @Get()
   @UseGuards(OptionalJwtAuthGuard)
   async findAllServices(
