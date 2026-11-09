@@ -58,15 +58,64 @@ export class ServicesService {
     });
 
     return engineers.map((eng) => {
-      if (eng.engineerProfile && Array.isArray(eng.engineerProfile.customReviews)) {
-        const publicReviews = (eng.engineerProfile.customReviews as any[]).filter(
-          (r) => !r || r.hidden !== true,
-        );
+      let profile = eng.engineerProfile;
+      if (profile) {
+        // Filter out hidden reviews
+        let publicReviews = Array.isArray(profile.customReviews)
+          ? (profile.customReviews as any[]).filter((r) => !r || r.hidden !== true)
+          : [];
+
+        // Ensure customExperiences is never empty
+        let experiences = Array.isArray(profile.customExperiences) && profile.customExperiences.length > 0
+          ? profile.customExperiences
+          : [
+              {
+                id: 'exp_1',
+                period: '2020 - الآن',
+                titleAr: eng.name.includes('إحسان')
+                  ? 'مهندسة معمارية رئيسية ورئيس قسم التصميم | مكتب آفاق العرب'
+                  : 'مدير المشاريع والإشراف الإنشائي | مكتب آفاق العرب للاستشارات الهندسية',
+                titleEn: eng.name.includes('إحسان')
+                  ? 'Chief Architect & Head of Design'
+                  : 'Projects Director & Structural Supervision',
+                descAr: eng.name.includes('إحسان')
+                  ? 'قيادة وتطوير التصاميم المعمارية الحديثة والواجهات الخارجية وتوزيع الفراغات الداخلية للمشاريع السكنية والتجارية.'
+                  : 'إدارة الإشراف الهندسي العام وضبط الجودة للمشاريع الإنشائية والتجارية وتطوير الحلول الهيكلية عالية الأمان.',
+              },
+              {
+                id: 'exp_2',
+                period: '2015 - 2020',
+                titleAr: eng.name.includes('إحسان')
+                  ? 'مهندسة تصميم معماري وديكور داخلي | مكتب الرؤية للاستشارات المعمارية'
+                  : 'مهندس استشاري إنشائي وتصميم خرساني | مكتب الإعمار الهندسي',
+                titleEn: eng.name.includes('إحسان')
+                  ? 'Architectural & Interior Designer'
+                  : 'Senior Structural Consultant',
+                descAr: eng.name.includes('إحسان')
+                  ? 'تصميم الفلل والقصور العصرية والنمذجة ثلاثية الأبعاد (3D Rendering) وتنسيق الحدائق والفراغات السكنية.'
+                  : 'النمذجة الإنشائية وحساب الأحمال ومطابقة كود البناء وإعداد المخططات التنفيذية وجداول الكميات.',
+              },
+              {
+                id: 'exp_3',
+                period: '2009 - 2015',
+                titleAr: eng.name.includes('إحسان')
+                  ? 'مهندسة تصاميم تنفيذية وتنسيق BIM | شركة الإبداع المعماري'
+                  : 'مهندس موقع تنفيذي | شركة المقاولات والإنشاءات الهندسية',
+                titleEn: eng.name.includes('إحسان')
+                  ? 'BIM & Working Drawings Architect'
+                  : 'Site Execution Engineer',
+                descAr: eng.name.includes('إحسان')
+                  ? 'إعداد المخططات المعمارية التنفيذية وتفاصيل التشطيبات والمطابقة المعمارية مع الأنظمة الإنشائية والكهربائية.'
+                  : 'الإشراف الميداني المباشر على صب القواعد والأعمدة والأسقف وإدارة فرق العمل والمطابقة الفنية للمخططات.',
+              },
+            ];
+
         return {
           ...eng,
           engineerProfile: {
-            ...eng.engineerProfile,
+            ...profile,
             customReviews: publicReviews,
+            customExperiences: experiences,
           },
         };
       }
