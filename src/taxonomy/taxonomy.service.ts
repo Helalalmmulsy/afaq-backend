@@ -1,6 +1,11 @@
 import { Injectable, OnModuleInit, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TaxonomyGroup, TaxonomyItem } from '@prisma/client';
+import {
+  SYNCABLE_TAXONOMY_GROUPS,
+  buildServiceFromTaxonomyItem,
+  mapTaxonomyGroupToDepartmentAndSubCategory,
+} from '../services/service-catalog.helper';
 
 export const INITIAL_TAXONOMIES = [
   // 1. Engineering Consultation Fields (مجال الاستشارة الهندسية)
@@ -324,7 +329,7 @@ export class TaxonomyService implements OnModuleInit {
       sortOrder = (maxItem?.sortOrder ?? 0) + 1;
     }
 
-    return this.prisma.taxonomyItem.create({
+    const created = await this.prisma.taxonomyItem.create({
       data: {
         group: data.group,
         code,
@@ -335,6 +340,25 @@ export class TaxonomyService implements OnModuleInit {
         isActive: data.isActive !== undefined ? data.isActive : true,
       },
     });
+
+    if (SYNCABLE_TAXONOMY_GROUPS.includes(created.group)) {
+      const payload = buildServiceFromTaxonomyItem(created);
+      const existing = await this.prisma.service.findFirst({
+        where: {
+          department: payload.department,
+          status: { not: 'ARCHIVED' },
+          OR: [
+            { taxonomyCode: created.code },
+            { nameAr: created.nameAr },
+          ],
+        },
+      });
+      if (!existing) {
+        await this.prisma.service.create({ data: payload });
+      }
+    }
+
+    return created;
   }
 
   async update(id: string, data: Partial<{
@@ -344,8 +368,8 @@ export class TaxonomyService implements OnModuleInit {
     sortOrder: number;
     isActive: boolean;
   }>): Promise<TaxonomyItem> {
-    await this.findOne(id);
-    return this.prisma.taxonomyItem.update({
+    const existingItem = await this.findOne(id);
+    const updated = await this.prisma.taxonomyItem.update({
       where: { id },
       data: {
         ...(data.nameAr !== undefined && { nameAr: data.nameAr.trim() }),
@@ -355,11 +379,72 @@ export class TaxonomyService implements OnModuleInit {
         ...(data.isActive !== undefined && { isActive: Boolean(data.isActive) }),
       },
     });
+
+    if (SYNCABLE_TAXONOMY_GROUPS.includes(updated.group)) {
+      const mapped = mapTaxonomyGroupToDepartmentAndSubCategory(
+        updated.group,
+        updated.code,
+        updated.nameAr,
+        updated.nameEn,
+        updated.description,
+      );
+      const linked = await this.prisma.service.findFirst({
+        where: {
+          department: mapped.department,
+          status: { not: 'ARCHIVED' },
+          taxonomyCode: updated.code,
+        },
+      });
+
+      if (linked) {
+        const shouldUpdateShortDesc =
+          data.description !== undefined &&
+          (!linked.shortDescriptionAr ||
+            linked.shortDescriptionAr === existingItem.description ||
+            linked.shortDescriptionAr === existingItem.nameAr);
+
+        await this.prisma.service.update({
+          where: { id: linked.id },
+          data: {
+            ...(data.nameAr !== undefined && { nameAr: updated.nameAr }),
+            ...(data.nameEn !== undefined && { nameEn: updated.nameEn }),
+            subCategory: mapped.subCategory,
+            ...(data.isActive !== undefined && {
+              status: updated.isActive ? 'PUBLISHED' : 'SUSPENDED',
+            }),
+            ...(shouldUpdateShortDesc && updated.description
+              ? { shortDescriptionAr: updated.description }
+              : {}),
+          },
+        });
+      }
+    }
+
+    return updated;
   }
 
   async delete(id: string): Promise<{ success: boolean; message: string }> {
-    await this.findOne(id);
+    const existingItem = await this.findOne(id);
     await this.prisma.taxonomyItem.delete({ where: { id } });
+
+    if (SYNCABLE_TAXONOMY_GROUPS.includes(existingItem.group)) {
+      const mapped = mapTaxonomyGroupToDepartmentAndSubCategory(
+        existingItem.group,
+        existingItem.code,
+        existingItem.nameAr,
+        existingItem.nameEn,
+        existingItem.description,
+      );
+      await this.prisma.service.updateMany({
+        where: {
+          department: mapped.department,
+          taxonomyCode: existingItem.code,
+          status: { not: 'ARCHIVED' },
+        },
+        data: { status: 'ARCHIVED' },
+      });
+    }
+
     return { success: true, message: 'Taxonomy item deleted successfully' };
   }
 

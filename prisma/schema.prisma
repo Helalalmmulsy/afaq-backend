@@ -309,6 +309,9 @@ model Service {
   nameAr               String
   nameEn               String
   department           Department
+  subCategory          String?
+  taxonomyCode         String?
+  basePrice            Float?
   shortDescriptionAr   String
   shortDescriptionEn   String
   detailedDescriptionAr String
@@ -321,6 +324,9 @@ model Service {
   requests             ServiceRequest[]
   portfolioProjects    ServicePortfolio[]
   ratings              Rating[]
+
+  @@index([department, status, subCategory])
+  @@index([taxonomyCode])
 }
 
 model ServiceRequest {

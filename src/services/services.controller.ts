@@ -54,16 +54,26 @@ export class ServicesController {
     return this.servicesService.publishProjectToShowcase(id, body);
   }
 
+  @Post('sync-taxonomies')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SYSTEM_ADMIN', 'ADMIN')
+  @RequirePermissions({ action: 'CREATE', module: 'SERVICES' })
+  async syncTaxonomiesToServices() {
+    return this.servicesService.syncTaxonomiesToServices();
+  }
+
   @Get()
   @UseGuards(OptionalJwtAuthGuard)
   async findAllServices(
     @Query('department') department?: Department,
+    @Query('subCategory') subCategory?: string,
     @Query('status') status?: 'DRAFT' | 'PUBLISHED' | 'SUSPENDED' | 'ARCHIVED',
     @Request() req?: any,
   ) {
     const hasAdminAccess = req?.user && (req.user.role === 'SYSTEM_ADMIN' || req.user.role === 'ADMIN');
     return this.servicesService.findAllServices({
       department,
+      subCategory,
       status,
       onlyPublished: !hasAdminAccess,
     });

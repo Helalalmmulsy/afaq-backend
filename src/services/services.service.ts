@@ -1,6 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Department, RequestStatus, ProjectStatus, ProjectMemberRole } from '@prisma/client';
+import {
+  SYNCABLE_TAXONOMY_GROUPS,
+  buildServiceFromTaxonomyItem,
+  inferServiceSubCategory,
+  normalizeSubCategory,
+} from './service-catalog.helper';
 
 @Injectable()
 export class ServicesService {
@@ -10,10 +16,20 @@ export class ServicesService {
   // 1. SERVICES MANAGEMENT
   // ==========================================
 
+  private parseBasePrice(val: any): number | null | undefined {
+    if (val === undefined) return undefined;
+    if (val === null || val === '') return null;
+    const n = Number(val);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  }
+
   async createService(data: {
     nameAr: string;
     nameEn?: string;
     department: Department;
+    subCategory?: string | null;
+    taxonomyCode?: string | null;
+    basePrice?: number | string | null;
     shortDescriptionAr: string;
     shortDescriptionEn?: string;
     detailedDescriptionAr: string;
@@ -21,16 +37,37 @@ export class ServicesService {
     coverImage: string;
     status?: 'DRAFT' | 'PUBLISHED' | 'SUSPENDED' | 'ARCHIVED';
   }) {
-    const nameEn = (data.nameEn && data.nameEn.trim() !== '') ? data.nameEn : data.nameAr;
-    const shortDescriptionEn = (data.shortDescriptionEn && data.shortDescriptionEn.trim() !== '') ? data.shortDescriptionEn : data.shortDescriptionAr;
-    const detailedDescriptionEn = (data.detailedDescriptionEn && data.detailedDescriptionEn.trim() !== '') ? data.detailedDescriptionEn : data.detailedDescriptionAr;
+    const nameEn = (data.nameEn && data.nameEn.trim() !== '') ? data.nameEn.trim() : data.nameAr.trim();
+    const shortDescriptionEn = (data.shortDescriptionEn && data.shortDescriptionEn.trim() !== '')
+      ? data.shortDescriptionEn.trim()
+      : data.shortDescriptionAr.trim();
+    const detailedDescriptionEn = (data.detailedDescriptionEn && data.detailedDescriptionEn.trim() !== '')
+      ? data.detailedDescriptionEn.trim()
+      : data.detailedDescriptionAr.trim();
+
+    const subCategory =
+      normalizeSubCategory(data.department, data.subCategory) ||
+      inferServiceSubCategory(
+        data.department,
+        data.taxonomyCode,
+        data.nameAr,
+        data.shortDescriptionAr,
+        data.detailedDescriptionAr,
+      );
 
     return this.prisma.service.create({
       data: {
-        ...data,
+        nameAr: data.nameAr.trim(),
         nameEn,
+        department: data.department,
+        subCategory,
+        taxonomyCode: data.taxonomyCode ? data.taxonomyCode.trim().toUpperCase() : null,
+        basePrice: this.parseBasePrice(data.basePrice) ?? null,
+        shortDescriptionAr: data.shortDescriptionAr.trim(),
         shortDescriptionEn,
+        detailedDescriptionAr: data.detailedDescriptionAr.trim(),
         detailedDescriptionEn,
+        coverImage: data.coverImage.trim(),
         status: data.status || 'DRAFT',
       },
     });
@@ -174,6 +211,7 @@ export class ServicesService {
 
   async publishProjectToShowcase(projectId: string, data: {
     department?: 'ENGINEERING' | 'CONTRACTING';
+    subCategory?: string;
     titleAr?: string;
     descriptionAr?: string;
     coverImage?: string;
@@ -199,6 +237,9 @@ export class ServicesService {
     const descAr = data.descriptionAr || project.description || titleAr;
     const coverImage = data.coverImage || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&fit=crop&q=80';
     const dept: Department = data.department === 'CONTRACTING' ? Department.CONTRACTING : Department.ENGINEERING;
+    const subCategory =
+      normalizeSubCategory(dept, data.subCategory) ||
+      inferServiceSubCategory(dept, null, titleAr, data.category, descAr);
 
     // 1. Create a published Service entry so it appears directly under Engineering or Contracting in the app!
     const service = await this.prisma.service.create({
@@ -206,6 +247,7 @@ export class ServicesService {
         nameAr: titleAr,
         nameEn: titleAr,
         department: dept,
+        subCategory,
         shortDescriptionAr: descAr.slice(0, 150),
         shortDescriptionEn: descAr.slice(0, 150),
         detailedDescriptionAr: descAr,
@@ -250,10 +292,11 @@ export class ServicesService {
 
   async findAllServices(params: {
     department?: Department;
+    subCategory?: string;
     status?: 'DRAFT' | 'PUBLISHED' | 'SUSPENDED' | 'ARCHIVED';
     onlyPublished?: boolean;
   }) {
-    const { department, status, onlyPublished } = params;
+    const { department, subCategory, status, onlyPublished } = params;
     const where: any = {};
 
     if (onlyPublished) {
@@ -268,10 +311,32 @@ export class ServicesService {
       where.department = department;
     }
 
-    return this.prisma.service.findMany({
+    const rows = await this.prisma.service.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }],
     });
+
+    const normalizedRows = rows.map((svc) => ({
+      ...svc,
+      subCategory:
+        normalizeSubCategory(svc.department, svc.subCategory) ||
+        inferServiceSubCategory(
+          svc.department,
+          svc.taxonomyCode,
+          svc.nameAr,
+          svc.shortDescriptionAr,
+          svc.detailedDescriptionAr,
+        ),
+    }));
+
+    if (subCategory && subCategory.trim().toUpperCase() !== 'ALL') {
+      const targetSub = subCategory.trim().toUpperCase();
+      return normalizedRows.filter(
+        (s) => (s.subCategory || '').toUpperCase() === targetSub,
+      );
+    }
+
+    return normalizedRows;
   }
 
   async findOneService(id: string) {
@@ -281,7 +346,18 @@ export class ServicesService {
     if (!service) {
       throw new NotFoundException('Service not found');
     }
-    return service;
+    return {
+      ...service,
+      subCategory:
+        normalizeSubCategory(service.department, service.subCategory) ||
+        inferServiceSubCategory(
+          service.department,
+          service.taxonomyCode,
+          service.nameAr,
+          service.shortDescriptionAr,
+          service.detailedDescriptionAr,
+        ),
+    };
   }
 
   async updateService(
@@ -290,6 +366,9 @@ export class ServicesService {
       nameAr?: string;
       nameEn?: string;
       department?: Department;
+      subCategory?: string | null;
+      taxonomyCode?: string | null;
+      basePrice?: number | string | null;
       shortDescriptionAr?: string;
       shortDescriptionEn?: string;
       detailedDescriptionAr?: string;
@@ -303,23 +382,56 @@ export class ServicesService {
       throw new BadRequestException('Archived services cannot be modified');
     }
 
-    const nameEn = (data.nameEn !== undefined) 
-      ? ((data.nameEn && data.nameEn.trim() !== '') ? data.nameEn : (data.nameAr || '')) 
+    const effectiveDept = data.department ?? service.department;
+    const nameEn = (data.nameEn !== undefined)
+      ? ((data.nameEn && data.nameEn.trim() !== '') ? data.nameEn.trim() : (data.nameAr?.trim() || service.nameAr))
       : undefined;
-    const shortDescriptionEn = (data.shortDescriptionEn !== undefined) 
-      ? ((data.shortDescriptionEn && data.shortDescriptionEn.trim() !== '') ? data.shortDescriptionEn : (data.shortDescriptionAr || '')) 
+    const shortDescriptionEn = (data.shortDescriptionEn !== undefined)
+      ? ((data.shortDescriptionEn && data.shortDescriptionEn.trim() !== '') ? data.shortDescriptionEn.trim() : (data.shortDescriptionAr?.trim() || service.shortDescriptionAr))
       : undefined;
-    const detailedDescriptionEn = (data.detailedDescriptionEn !== undefined) 
-      ? ((data.detailedDescriptionEn && data.detailedDescriptionEn.trim() !== '') ? data.detailedDescriptionEn : (data.detailedDescriptionAr || '')) 
+    const detailedDescriptionEn = (data.detailedDescriptionEn !== undefined)
+      ? ((data.detailedDescriptionEn && data.detailedDescriptionEn.trim() !== '') ? data.detailedDescriptionEn.trim() : (data.detailedDescriptionAr?.trim() || service.detailedDescriptionAr))
       : undefined;
+
+    const normalizedSub =
+      data.subCategory !== undefined
+        ? (normalizeSubCategory(effectiveDept, data.subCategory) ||
+            inferServiceSubCategory(
+              effectiveDept,
+              data.taxonomyCode ?? service.taxonomyCode,
+              data.nameAr ?? service.nameAr,
+              data.shortDescriptionAr ?? service.shortDescriptionAr,
+              data.detailedDescriptionAr ?? service.detailedDescriptionAr,
+            ))
+        : (data.department !== undefined && data.department !== service.department
+            ? inferServiceSubCategory(
+                effectiveDept,
+                data.taxonomyCode ?? service.taxonomyCode,
+                data.nameAr ?? service.nameAr,
+                data.shortDescriptionAr ?? service.shortDescriptionAr,
+                data.detailedDescriptionAr ?? service.detailedDescriptionAr,
+              )
+            : undefined);
+
+    const parsedBasePrice = this.parseBasePrice(data.basePrice);
 
     return this.prisma.service.update({
       where: { id },
       data: {
-        ...data,
+        ...(data.nameAr !== undefined ? { nameAr: data.nameAr.trim() } : {}),
         ...(nameEn !== undefined ? { nameEn } : {}),
+        ...(data.department !== undefined ? { department: data.department } : {}),
+        ...(normalizedSub !== undefined ? { subCategory: normalizedSub } : {}),
+        ...(data.taxonomyCode !== undefined
+          ? { taxonomyCode: data.taxonomyCode ? data.taxonomyCode.trim().toUpperCase() : null }
+          : {}),
+        ...(parsedBasePrice !== undefined ? { basePrice: parsedBasePrice } : {}),
+        ...(data.shortDescriptionAr !== undefined ? { shortDescriptionAr: data.shortDescriptionAr.trim() } : {}),
         ...(shortDescriptionEn !== undefined ? { shortDescriptionEn } : {}),
+        ...(data.detailedDescriptionAr !== undefined ? { detailedDescriptionAr: data.detailedDescriptionAr.trim() } : {}),
         ...(detailedDescriptionEn !== undefined ? { detailedDescriptionEn } : {}),
+        ...(data.coverImage !== undefined ? { coverImage: data.coverImage.trim() } : {}),
+        ...(data.status !== undefined ? { status: data.status } : {}),
       },
     });
   }
@@ -327,6 +439,78 @@ export class ServicesService {
   async deleteService(id: string) {
     // Soft delete by archiving
     return this.updateService(id, { status: 'ARCHIVED' });
+  }
+
+  async syncTaxonomiesToServices() {
+    const taxonomies = await this.prisma.taxonomyItem.findMany({
+      where: { group: { in: SYNCABLE_TAXONOMY_GROUPS } },
+      orderBy: [{ group: 'asc' }, { sortOrder: 'asc' }],
+    });
+
+    const existingServices = await this.prisma.service.findMany({
+      where: { status: { not: 'ARCHIVED' } },
+    });
+
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+
+    // First backfill missing subCategory on existing rows
+    for (const svc of existingServices) {
+      const normalized = normalizeSubCategory(svc.department, svc.subCategory);
+      const inferred = inferServiceSubCategory(
+        svc.department,
+        svc.taxonomyCode,
+        svc.nameAr,
+        svc.shortDescriptionAr,
+        svc.detailedDescriptionAr,
+      );
+      const needsSub = !normalized;
+      const isLegacyConcrete =
+        svc.department === Department.CONTRACTING &&
+        !svc.taxonomyCode &&
+        (svc.nameAr.includes('الهياكل الخرسانية') || svc.nameAr.includes('المقاولات العامة'));
+
+      if (needsSub || isLegacyConcrete) {
+        await this.prisma.service.update({
+          where: { id: svc.id },
+          data: {
+            ...(needsSub ? { subCategory: inferred } : {}),
+            ...(isLegacyConcrete ? { taxonomyCode: 'CONCRETE' } : {}),
+          },
+        });
+        if (isLegacyConcrete) svc.taxonomyCode = 'CONCRETE';
+        updated++;
+      }
+    }
+
+    // Create any missing services corresponding to TaxonomyItem entries
+    for (const item of taxonomies) {
+      const payload = buildServiceFromTaxonomyItem(item);
+      const alreadyExists = existingServices.some(
+        (s) =>
+          s.department === payload.department &&
+          ((s.taxonomyCode && s.taxonomyCode.toUpperCase() === item.code.toUpperCase()) ||
+            s.nameAr.trim() === item.nameAr.trim()),
+      );
+
+      if (alreadyExists) {
+        skipped++;
+        continue;
+      }
+
+      const newSvc = await this.prisma.service.create({ data: payload });
+      existingServices.push(newSvc);
+      created++;
+    }
+
+    return {
+      message: 'Synced taxonomies to services successfully',
+      created,
+      updated,
+      skipped,
+      total: created + updated + skipped,
+    };
   }
 
 

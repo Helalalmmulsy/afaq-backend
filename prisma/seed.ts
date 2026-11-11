@@ -2,6 +2,8 @@ import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import 'dotenv/config';
+import { INITIAL_TAXONOMIES } from '../src/taxonomy/taxonomy.service';
+import { SYNCABLE_TAXONOMY_GROUPS, buildServiceFromTaxonomyItem } from '../src/services/service-catalog.helper';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -408,11 +410,12 @@ async function main() {
       nameAr: 'التصاميم والاستشارات الهندسية الشاملة',
       nameEn: 'Architectural & Engineering Designs',
       department: 'ENGINEERING',
+      subCategory: 'ARCH',
       shortDescriptionAr: 'تصميم مخططات معمارية وإنشائية احترافية ثلاثية الأبعاد متوافقة مع كود البناء الدولي.',
       shortDescriptionEn: 'Professional architectural, structural and 3D interior design layouts compatible with international codes.',
       detailedDescriptionAr: 'نقدم خدمة تصميم كاملة تشمل المخططات المعمارية والإنشائية، وتصاميم الواجهات الحجرية والزجاجية، مع تقديم مساقط ومناظير 3D للمبنى من الخارج والداخل لضمان مطابقة التصور للواقع قبل البدء بالبناء.',
       detailedDescriptionEn: 'We offer full blueprint designs including floor layouts, structural calculations, facade modeling, and 3D architectural renders for perfect visualization.',
-      coverImage: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?q=80&w=400',
+      coverImage: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?q=80&w=800',
       status: 'PUBLISHED',
     },
   });
@@ -422,14 +425,23 @@ async function main() {
       nameAr: 'المقاولات العامة وتشييد الهياكل الخرسانية',
       nameEn: 'General Contracting & Building Structures',
       department: 'CONTRACTING',
+      subCategory: 'CONCRETE',
+      taxonomyCode: 'CONCRETE',
       shortDescriptionAr: 'تنفيذ أعمال العظم والخرسانة المسلحة وتشييد العمارات والفلل بأعلى جودة وإشراف معتمد.',
       shortDescriptionEn: 'Execution of building carcasses, reinforced concrete works and structural developments under engineer approval.',
       detailedDescriptionAr: 'نقوم بتنفيذ جميع أعمال التشييد والبناء ابتداءً من الحفر والردم وصب الخرسانة المسلحة للأساسات، الأوتاد، والأعمدة والأسقف، مروراً بالبناء وتركيب الواجهات الحجرية بأحدث الطرق الهندسية وتحت إشراف مهندسينا المعتمدين.',
       detailedDescriptionEn: 'We carry out all concrete framework, earth excavation, structural casting, blockwork, stone cladding and bricklaying with approved quality control.',
-      coverImage: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=400',
+      coverImage: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=800',
       status: 'PUBLISHED',
     },
   });
+
+  for (const t of INITIAL_TAXONOMIES) {
+    if (!SYNCABLE_TAXONOMY_GROUPS.includes(t.group) || t.code === 'CONCRETE') continue;
+    await prisma.service.create({
+      data: buildServiceFromTaxonomyItem(t),
+    });
+  }
 
   console.log('Seeded Services');
 
