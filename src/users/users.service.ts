@@ -5,12 +5,27 @@ import { PrismaService } from '../prisma/prisma.service';
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
+  private normalizeQualifications(list?: any): string[] {
+    if (!Array.isArray(list)) return [];
+    return list
+      .map((item) => (typeof item === 'string' ? item.trim() : String(item || '').trim()))
+      .filter((item) => item.length > 0);
+  }
+
   async create(data: {
     name: string;
     email: string;
     phone?: string;
     password?: string;
+    profileImage?: string;
     roleId: string;
+    specialization?: string;
+    experienceYears?: number;
+    bio?: string;
+    qualifications?: string[];
+    certificates?: string[];
+    skills?: string[];
+    companyName?: string;
     engineerDetails?: {
       specialization: string;
       experienceYears: number;
@@ -43,6 +58,8 @@ export class UsersService {
       throw new NotFoundException('Role not found');
     }
 
+    const defaultQualification = 'بكالوريوس هندسة مدنية - جامعة ذمار (2011)';
+
     // Start transaction to ensure atomicity
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
@@ -50,6 +67,7 @@ export class UsersService {
           name: data.name,
           email: data.email,
           phone: data.phone,
+          profileImage: data.profileImage,
           password: data.password, // In production, hash this!
           roleId: data.roleId,
           status: 'ACTIVE',
@@ -59,39 +77,82 @@ export class UsersService {
 
       // Automatically create engineer profile if role is ENGINEER
       if (role.name === 'ENGINEER') {
-        if (!data.engineerDetails) {
+        const engDetails = data.engineerDetails || (
+          data.specialization !== undefined ||
+          data.experienceYears !== undefined ||
+          data.bio !== undefined ||
+          data.qualifications !== undefined
+            ? {
+                specialization: data.specialization || 'تصميم هندسي',
+                experienceYears: Number(data.experienceYears ?? 0),
+                bio: data.bio || '',
+                qualifications: data.qualifications,
+                certificates: data.certificates || [],
+                skills: data.skills || [],
+              }
+            : null
+        );
+        if (!engDetails) {
           throw new BadRequestException('Engineer details are required for ENGINEER role');
         }
+        const rawQualifications =
+          engDetails.qualifications !== undefined ? engDetails.qualifications : data.qualifications;
+        const qualifications =
+          rawQualifications !== undefined
+            ? this.normalizeQualifications(rawQualifications)
+            : [defaultQualification];
+
         await tx.engineerProfile.create({
           data: {
             userId: user.id,
-            specialization: data.engineerDetails.specialization,
-            experienceYears: data.engineerDetails.experienceYears,
-            bio: data.engineerDetails.bio,
-            qualifications: data.engineerDetails.qualifications || [],
-            certificates: data.engineerDetails.certificates || [],
-            skills: data.engineerDetails.skills || [],
+            specialization: engDetails.specialization || 'تصميم هندسي',
+            experienceYears: Number(engDetails.experienceYears ?? 0),
+            bio: engDetails.bio,
+            qualifications: qualifications.length > 0 ? qualifications : [defaultQualification],
+            certificates: engDetails.certificates || [],
+            skills: engDetails.skills || [],
           },
         });
       }
 
       // Automatically create contractor profile if role is CONTRACTOR
       if (role.name === 'CONTRACTOR') {
-        if (!data.contractorDetails) {
+        const contDetails = data.contractorDetails || (
+          data.companyName !== undefined ||
+          data.experienceYears !== undefined ||
+          data.bio !== undefined
+            ? {
+                companyName: data.companyName,
+                experienceYears: Number(data.experienceYears ?? 0),
+                bio: data.bio || '',
+                certificates: data.certificates || [],
+                skills: data.skills || [],
+              }
+            : null
+        );
+        if (!contDetails) {
           throw new BadRequestException('Contractor details are required for CONTRACTOR role');
         }
         await tx.contractorProfile.create({
           data: {
             userId: user.id,
-            companyName: data.contractorDetails.companyName,
-            experienceYears: data.contractorDetails.experienceYears,
-            bio: data.contractorDetails.bio,
-            certificates: data.contractorDetails.certificates || [],
-            skills: data.contractorDetails.skills || [],
+            companyName: contDetails.companyName,
+            experienceYears: Number(contDetails.experienceYears ?? 0),
+            bio: contDetails.bio,
+            certificates: contDetails.certificates || [],
+            skills: contDetails.skills || [],
           },
         });
       }
 
+      const fullUser = await tx.user.findUnique({
+        where: { id: user.id },
+        include: { role: true, engineerProfile: true, contractorProfile: true },
+      });
+      if (fullUser) {
+        const { password, ...result } = fullUser;
+        return result;
+      }
       return user;
     });
   }
@@ -218,14 +279,19 @@ export class UsersService {
 
       // Update engineer details if profile exists
       if (user.role.name === 'ENGINEER' && data.engineerDetails) {
+        const sanitizedQualifications =
+          data.engineerDetails.qualifications !== undefined
+            ? this.normalizeQualifications(data.engineerDetails.qualifications)
+            : undefined;
+
         await tx.engineerProfile.upsert({
           where: { userId: id },
           create: {
             userId: id,
             specialization: data.engineerDetails.specialization || 'General',
-            experienceYears: data.engineerDetails.experienceYears || 0,
+            experienceYears: Number(data.engineerDetails.experienceYears ?? 0),
             bio: data.engineerDetails.bio,
-            qualifications: data.engineerDetails.qualifications || [],
+            qualifications: sanitizedQualifications || ['بكالوريوس هندسة مدنية - جامعة ذمار (2011)'],
             certificates: data.engineerDetails.certificates || [],
             skills: data.engineerDetails.skills || [],
             customProjects: data.engineerDetails.customProjects || [],
@@ -234,9 +300,12 @@ export class UsersService {
           },
           update: {
             specialization: data.engineerDetails.specialization,
-            experienceYears: data.engineerDetails.experienceYears,
+            experienceYears:
+              data.engineerDetails.experienceYears !== undefined
+                ? Number(data.engineerDetails.experienceYears)
+                : undefined,
             bio: data.engineerDetails.bio,
-            qualifications: data.engineerDetails.qualifications,
+            qualifications: sanitizedQualifications,
             certificates: data.engineerDetails.certificates,
             skills: data.engineerDetails.skills,
             customProjects: data.engineerDetails.customProjects,
@@ -253,7 +322,7 @@ export class UsersService {
           create: {
             userId: id,
             companyName: data.contractorDetails.companyName,
-            experienceYears: data.contractorDetails.experienceYears || 0,
+            experienceYears: Number(data.contractorDetails.experienceYears ?? 0),
             bio: data.contractorDetails.bio,
             certificates: data.contractorDetails.certificates || [],
             skills: data.contractorDetails.skills || [],
@@ -263,7 +332,10 @@ export class UsersService {
           },
           update: {
             companyName: data.contractorDetails.companyName,
-            experienceYears: data.contractorDetails.experienceYears,
+            experienceYears:
+              data.contractorDetails.experienceYears !== undefined
+                ? Number(data.contractorDetails.experienceYears)
+                : undefined,
             bio: data.contractorDetails.bio,
             certificates: data.contractorDetails.certificates,
             skills: data.contractorDetails.skills,
@@ -274,7 +346,11 @@ export class UsersService {
         });
       }
 
-      const { password, ...result } = updatedUser;
+      const refreshedUser = await tx.user.findUnique({
+        where: { id },
+        include: { role: true, engineerProfile: true, contractorProfile: true },
+      });
+      const { password, ...result } = (refreshedUser || updatedUser) as any;
       return result;
     });
   }

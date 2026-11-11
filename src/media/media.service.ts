@@ -119,6 +119,7 @@ export class MediaService {
           fileSize: true,
           fileType: true,
           category: true,
+          fileUrl: true,
         },
       }),
     ]);
@@ -126,6 +127,7 @@ export class MediaService {
     let totalBytes = 0;
     let imagesCount = 0;
     let documentsCount = 0;
+    let localFallbackCount = 0;
     const categoryCounts: Record<string, number> = {};
 
     for (const item of allMedia) {
@@ -135,8 +137,13 @@ export class MediaService {
       } else {
         documentsCount++;
       }
+      if (item.fileUrl?.includes('/uploads/')) {
+        localFallbackCount++;
+      }
       categoryCounts[item.category] = (categoryCounts[item.category] || 0) + 1;
     }
+
+    const storageInfo = this.storageService.getStorageInfo();
 
     return {
       totalFiles,
@@ -144,6 +151,8 @@ export class MediaService {
       imagesCount,
       documentsCount,
       categoryCounts,
+      localFallbackCount,
+      ...storageInfo,
     };
   }
 

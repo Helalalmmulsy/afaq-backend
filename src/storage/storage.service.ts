@@ -19,14 +19,21 @@ export class StorageService {
   private readonly r2BucketName: string | null = null;
   private readonly r2PublicUrl: string | null = null;
   private readonly isR2Enabled: boolean = false;
+  private lastR2Error: string | null = null;
   private readonly uploadsLocalDir: string = path.join(process.cwd(), 'uploads');
 
+  private cleanEnv(val?: string): string | undefined {
+    if (!val) return undefined;
+    const cleaned = val.trim().replace(/^["']|["']$/g, '');
+    return cleaned.length > 0 ? cleaned : undefined;
+  }
+
   constructor() {
-    const accountId = process.env.R2_ACCOUNT_ID;
-    const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-    const bucketName = process.env.R2_BUCKET_NAME;
-    const publicUrl = process.env.R2_PUBLIC_URL;
+    const accountId = this.cleanEnv(process.env.R2_ACCOUNT_ID);
+    const accessKeyId = this.cleanEnv(process.env.R2_ACCESS_KEY_ID);
+    const secretAccessKey = this.cleanEnv(process.env.R2_SECRET_ACCESS_KEY);
+    const bucketName = this.cleanEnv(process.env.R2_BUCKET_NAME);
+    const publicUrl = this.cleanEnv(process.env.R2_PUBLIC_URL);
 
     if (accountId && accessKeyId && secretAccessKey && bucketName) {
       try {
@@ -37,12 +44,15 @@ export class StorageService {
             accessKeyId,
             secretAccessKey,
           },
+          requestChecksumCalculation: 'WHEN_REQUIRED',
+          responseChecksumValidation: 'WHEN_REQUIRED',
         });
         this.r2BucketName = bucketName;
         this.r2PublicUrl = publicUrl ? publicUrl.replace(/\/+$/, '') : null;
         this.isR2Enabled = true;
         this.logger.log(`Cloudflare R2 Storage initialized successfully for bucket: ${bucketName}`);
       } catch (err: any) {
+        this.lastR2Error = err?.message || 'Failed to initialize S3Client';
         this.logger.error(`Failed to initialize Cloudflare R2 client: ${err?.message}`, err?.stack);
       }
     } else {
@@ -53,6 +63,15 @@ export class StorageService {
     if (!fs.existsSync(this.uploadsLocalDir)) {
       fs.mkdirSync(this.uploadsLocalDir, { recursive: true });
     }
+  }
+
+  getStorageInfo() {
+    return {
+      storageMode: this.isR2Enabled ? ('R2' as const) : ('LOCAL' as const),
+      bucketName: this.r2BucketName,
+      r2PublicUrl: this.r2PublicUrl,
+      lastR2Error: this.lastR2Error,
+    };
   }
 
   /**
@@ -79,6 +98,7 @@ export class StorageService {
         });
 
         await this.s3Client.send(command);
+        this.lastR2Error = null;
 
         const baseUrl = this.r2PublicUrl || `https://${this.r2BucketName}.r2.dev`;
         const fileUrl = `${baseUrl}/${storageKey}`;
@@ -92,7 +112,8 @@ export class StorageService {
           storageProvider: 'R2',
         };
       } catch (err: any) {
-        this.logger.error(`Error uploading to R2: ${err.message}. Falling back to local storage.`);
+        this.lastR2Error = err?.message || 'Unknown R2 PutObject error';
+        this.logger.error(`Error uploading to R2: ${err.message}. Falling back to local storage.`, err?.stack);
       }
     }
 
